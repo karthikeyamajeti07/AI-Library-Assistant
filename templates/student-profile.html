@@ -28,12 +28,6 @@
         <section class="card">
             <h3>👤 My Profile</h3>
             <div id="profile"></div>
-            <hr style="border:0;border-top:1px solid #eee;margin:20px 0">
-            <h3>Edit Profile</h3>
-            <input id="name" placeholder="Full name">
-            <input id="department" placeholder="Department">
-            <button class="primary" onclick="updateProfile()">Save Changes</button>
-            <p id="profileMsg" class="muted"></p>
             <div class="stats">
                 <div class="stat"><b id="activeCount">0</b><span>Active</span></div>
                 <div class="stat"><b id="historyCount">0</b><span>Total Borrowed</span></div>
@@ -82,13 +76,6 @@ async function loadProfile(){
         </div>
     `;
 
-    document.getElementById('name').value = d.name || '';
-    document.getElementById('department').value = d.department || '';
-}
-async function updateProfile(){
-    const name=document.getElementById('name').value.trim(), department=document.getElementById('department').value.trim(), msg=document.getElementById('profileMsg');
-    const r=await fetch('/api/student/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department})}); const d=await r.json();
-    msg.textContent=d.message||d.error||'Something went wrong'; msg.className=r.ok?'success':'error'; if(r.ok) loadProfile();
 }
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 loadProfile();
