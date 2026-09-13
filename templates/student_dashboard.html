@@ -312,6 +312,24 @@
 
         <div class="card">
 
+            <div class="card-icon">📚</div>
+
+            <h2>Show Books</h2>
+
+            <p>
+                View the book number, book name,
+                and subject for every library book.
+            </p>
+
+            <button onclick="showAllBooks()">
+                Show Books
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
             <div class="card-icon">🤖</div>
 
             <h2>AI Assistant</h2>
@@ -434,6 +452,20 @@
 
     </div>
 
+    <!-- Show Books -->
+
+    <div class="dashboard-section" id="allBooksSection" style="display:none;">
+
+        <h2>📚 All Books</h2>
+
+        <div class="section-actions">
+            <button onclick="hideDashboardSection('allBooksSection')">Close</button>
+        </div>
+
+        <div id="allBooksResults" class="section-loading">Loading books...</div>
+
+    </div>
+
     <!-- Borrow Book -->
 
     <div class="dashboard-section" id="borrowBookSection" style="display:none;">
@@ -517,6 +549,48 @@ function showSearchBooks() {
     section.style.display = "block";
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     document.getElementById("search")?.focus();
+}
+
+async function showAllBooks() {
+    const section = document.getElementById("allBooksSection");
+    const target = document.getElementById("allBooksResults");
+    if (!section || !target) return;
+    section.style.display = "block";
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.innerHTML = '<div class="section-loading">Loading books...</div>';
+    try {
+        const response = await fetch("/api/books");
+        const books = await response.json();
+        if (!response.ok) throw new Error(books.error || "Unable to load books.");
+        if (!books.length) {
+            target.innerHTML = '<div class="empty-state">No books found.</div>';
+            return;
+        }
+        target.innerHTML = `
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;text-align:left;">
+                    <thead>
+                        <tr>
+                            <th style="padding:12px;border-bottom:2px solid #ddd;">Book Number</th>
+                            <th style="padding:12px;border-bottom:2px solid #ddd;">Book Name</th>
+                            <th style="padding:12px;border-bottom:2px solid #ddd;">Subject</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${books.map(book => `
+                            <tr>
+                                <td style="padding:12px;border-bottom:1px solid #eee;">${escapeHtml(book.book_id)}</td>
+                                <td style="padding:12px;border-bottom:1px solid #eee;">${escapeHtml(book.title)}</td>
+                                <td style="padding:12px;border-bottom:1px solid #eee;">${escapeHtml(book.main_category || "-")}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } catch (error) {
+        target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
+    }
 }
 
 function showBorrowBook() {
