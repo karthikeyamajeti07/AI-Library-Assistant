@@ -27,6 +27,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
         }
 
         .logo {
@@ -38,6 +39,22 @@
             display: flex;
             align-items: center;
             gap: 15px;
+        }
+
+        .welcome-user {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .profile-link {
+            color: white;
+            text-decoration: none;
+            background: #2563eb;
+            padding: 8px 15px;
+            border-radius: 5px;
         }
 
         .logout {
@@ -255,6 +272,16 @@
                 gap: 10px;
             }
 
+            .welcome-user {
+                position: static;
+                transform: none;
+                order: 2;
+            }
+
+            .user-area {
+                order: 3;
+            }
+
             .search-box {
                 flex-direction: column;
             }
@@ -272,11 +299,13 @@
         📚 AI Library Assistant
     </div>
 
+    <span class="welcome-user">Welcome, {{ user.name }}</span>
+
     <div class="user-area">
 
-        <span>
-            Welcome, {{ user.name }}
-        </span>
+        <a href="/student-profile" class="profile-link">
+            Profile
+        </a>
 
         <a href="/logout" class="logout">
             Logout
