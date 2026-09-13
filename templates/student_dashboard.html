@@ -330,42 +330,6 @@
 
         <div class="card">
 
-            <div class="card-icon">📚</div>
-
-            <h2>My Books</h2>
-
-            <p>
-                View books currently borrowed by you
-                and their due dates.
-            </p>
-
-            <button onclick="showMyBooks()">
-                View Books
-            </button>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-icon">⏰</div>
-
-            <h2>Due Dates</h2>
-
-            <p>
-                Check upcoming due dates and avoid
-                late returns.
-            </p>
-
-            <button onclick="showDueDates()">
-                Check Dates
-            </button>
-
-        </div>
-
-
-        <div class="card">
-
             <div class="card-icon">👤</div>
 
             <h2>My Profile</h2>
@@ -384,43 +348,23 @@
 
         <div class="card">
 
-            <div class="card-icon">💡</div>
+            <div class="card-icon">📚</div>
 
-            <h2>Recommendations</h2>
+            <h2>Borrow Book</h2>
 
             <p>
-                Get AI-powered book recommendations
-                based on your interests.
+                Find available books, borrow them,
+                and view your borrowing history.
             </p>
 
-            <button onclick="alert('AI recommendations will be connected next.')">
-                Get Recommendations
+            <button onclick="showBorrowBook()">
+                Borrow Book
             </button>
 
         </div>
 
     </div>
 
-
-    <!-- My Books -->
-    <div class="dashboard-section" id="myBooksSection" style="display:none;">
-        <h2>📚 My Books</h2>
-        <div class="section-actions">
-            <button onclick="loadMyBooks()">Refresh</button>
-            <button onclick="hideDashboardSection('myBooksSection')">Close</button>
-        </div>
-        <div id="myBooksResults" class="section-loading">Loading your borrowed books...</div>
-    </div>
-
-    <!-- Due Dates -->
-    <div class="dashboard-section" id="dueDatesSection" style="display:none;">
-        <h2>⏰ Due Dates</h2>
-        <div class="section-actions">
-            <button onclick="loadDueDates()">Refresh</button>
-            <button onclick="hideDashboardSection('dueDatesSection')">Close</button>
-        </div>
-        <div id="dueDatesResults" class="section-loading">Loading your due dates...</div>
-    </div>
 
     <!-- Search Books -->
 
@@ -454,6 +398,36 @@
 
     </div>
 
+    <!-- Borrow Book -->
+
+    <div class="dashboard-section" id="borrowBookSection" style="display:none;">
+
+        <h2>📚 Borrow Book</h2>
+
+        <div class="section-actions">
+            <button onclick="hideDashboardSection('borrowBookSection')">Close</button>
+        </div>
+
+        <h3>🔎 Find & Borrow a Book</h3>
+        <p>Search for a book and borrow it if copies are available.</p>
+
+        <div class="search-box">
+            <input
+                type="text"
+                id="borrowSearch"
+                placeholder="Search title, author, category or Book ID..."
+                onkeydown="if(event.key === 'Enter') searchBorrowBooks()"
+            >
+            <button onclick="searchBorrowBooks()">Search Books</button>
+        </div>
+
+        <div id="borrowResults"></div>
+
+        <h3 style="margin-top:24px;">📖 My Borrowing History</h3>
+        <div id="borrowings" class="section-loading">Loading your borrowing history...</div>
+
+    </div>
+
 </div>
 
 
@@ -481,26 +455,13 @@ function showSearchBooks() {
     document.getElementById("search")?.focus();
 }
 
-function showMyBooks() {
-    const section = document.getElementById("myBooksSection");
-    const due = document.getElementById("dueDatesSection");
-    if (due) due.style.display = "none";
-    if (section) {
-        section.style.display = "block";
-        section.scrollIntoView({ behavior: "smooth", block: "start" });
-        loadMyBooks();
-    }
-}
-
-function showDueDates() {
-    const section = document.getElementById("dueDatesSection");
-    const books = document.getElementById("myBooksSection");
-    if (books) books.style.display = "none";
-    if (section) {
-        section.style.display = "block";
-        section.scrollIntoView({ behavior: "smooth", block: "start" });
-        loadDueDates();
-    }
+function showBorrowBook() {
+    const section = document.getElementById("borrowBookSection");
+    if (!section) return;
+    section.style.display = "block";
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    loadBorrowings();
+    document.getElementById("borrowSearch")?.focus();
 }
 
 async function getStudentBorrowings() {
@@ -559,40 +520,19 @@ function bookBorrowingCard(row, includeReturn = true) {
     `;
 }
 
-async function loadMyBooks() {
-    const target = document.getElementById("myBooksResults");
+async function loadBorrowings() {
+    const target = document.getElementById("borrowings");
     if (!target) return;
-    target.innerHTML = '<div class="section-loading">Loading your borrowed books...</div>';
-
+    target.innerHTML = '<div class="section-loading">Loading your borrowing history...</div>';
     try {
-        const rows = activeBorrowings(await getStudentBorrowings());
-        rows.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+        const rows = await getStudentBorrowings();
         if (!rows.length) {
-            target.innerHTML = '<div class="empty-state">📚 You currently have no borrowed books.</div>';
+            target.innerHTML = '<div class="empty-state">No borrowing records yet.</div>';
             return;
         }
         target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row)).join("")}</div>`;
     } catch (error) {
-        console.error("My Books error:", error);
-        target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
-    }
-}
-
-async function loadDueDates() {
-    const target = document.getElementById("dueDatesResults");
-    if (!target) return;
-    target.innerHTML = '<div class="section-loading">Loading your due dates...</div>';
-
-    try {
-        const rows = activeBorrowings(await getStudentBorrowings());
-        rows.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
-        if (!rows.length) {
-            target.innerHTML = '<div class="empty-state">✅ You have no upcoming due dates.</div>';
-            return;
-        }
-        target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row, false)).join("")}</div>`;
-    } catch (error) {
-        console.error("Due Dates error:", error);
+        console.error("Borrowing history error:", error);
         target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
     }
 }
@@ -609,11 +549,59 @@ async function returnBook(borrowingId) {
         if (!response.ok) throw new Error(data.error || "Unable to return the book.");
 
         alert(data.message || "Book returned successfully.");
-        await loadMyBooks();
-        const dueSection = document.getElementById("dueDatesSection");
-        if (dueSection && dueSection.style.display !== "none") await loadDueDates();
+        await loadBorrowings();
     } catch (error) {
         console.error("Return error:", error);
+        alert(error.message);
+    }
+}
+
+async function searchBorrowBooks() {
+    const query = document.getElementById("borrowSearch").value.trim();
+    const results = document.getElementById("borrowResults");
+    if (!query) {
+        results.innerHTML = '<p class="muted">Enter a search term.</p>';
+        return;
+    }
+    results.innerHTML = '<p class="muted">Searching...</p>';
+    try {
+        const response = await fetch("/api/search?q=" + encodeURIComponent(query));
+        const books = await response.json();
+        if (!response.ok) throw new Error(books.error || "Unable to search books.");
+        if (!books.length) {
+            results.innerHTML = '<p class="muted">No matching books found.</p>';
+            return;
+        }
+        results.innerHTML = books.map(book => `
+            <div class="borrowed-card" style="margin-top:12px;">
+                <h3>${escapeHtml(book.title)}</h3>
+                <p><strong>Book ID:</strong> ${escapeHtml(book.book_id)}</p>
+                <p><strong>Author:</strong> ${escapeHtml(book.author)}</p>
+                <p><strong>Shelf:</strong> ${escapeHtml(book.shelf_location || "-")}</p>
+                <p><strong>Available:</strong> ${book.available_copies} / ${book.total_copies}</p>
+                ${book.available_copies > 0
+                    ? `<button class="return-btn" onclick="borrowBook('${escapeHtml(book.book_id)}')">Borrow Book</button>`
+                    : '<p class="status-danger">Currently unavailable</p>'}
+            </div>
+        `).join("");
+    } catch (error) {
+        results.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+async function borrowBook(bookId) {
+    try {
+        const response = await fetch("/api/student/borrow", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ book_id: bookId })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to borrow the book.");
+        alert(`${data.message}\nDue date: ${data.due_date}`);
+        await loadBorrowings();
+        await searchBorrowBooks();
+    } catch (error) {
         alert(error.message);
     }
 }
