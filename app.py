@@ -2006,10 +2006,23 @@ def chat():
         return denied
 
     try:
-        data=request.get_json() or {}
-        user_message=data.get("message", "").strip()
+        data=request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Request body must be a JSON object."}), 400
+        user_message=data.get("message", "")
+        if not isinstance(user_message, str):
+            return jsonify({"error": "Message must be text."}), 400
+        user_message=user_message.strip()
         if not user_message:
             return jsonify({"reply":"Please enter a question."})
+
+        conn = get_db_connection()
+        ai_setting = conn.execute(
+            "SELECT value FROM library_settings WHERE key = 'ai_enabled'"
+        ).fetchone()
+        conn.close()
+        if ai_setting and ai_setting["value"] != "1":
+            return jsonify({"reply": "The AI assistant is currently disabled by the library administrator."})
 
         log_ai_activity(user_message)
         casual=is_casual_message(user_message)
