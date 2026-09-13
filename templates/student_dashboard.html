@@ -381,6 +381,24 @@
 
         </div>
 
+
+        <div class="card">
+
+            <div class="card-icon">📖</div>
+
+            <h2>My Books</h2>
+
+            <p>
+                View the books you currently have
+                borrowed and return them.
+            </p>
+
+            <button onclick="showMyBooks()">
+                View Books
+            </button>
+
+        </div>
+
     </div>
 
 
@@ -460,6 +478,20 @@
 
     </div>
 
+    <!-- My Books -->
+
+    <div class="dashboard-section" id="myBooksSection" style="display:none;">
+
+        <h2>📖 My Books</h2>
+
+        <div class="section-actions">
+            <button onclick="hideDashboardSection('myBooksSection')">Close</button>
+        </div>
+
+        <div id="myBooksResults" class="section-loading">Loading your borrowed books...</div>
+
+    </div>
+
 </div>
 
 
@@ -502,6 +534,14 @@ function showDueDates() {
     section.style.display = "block";
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     loadDueDates();
+}
+
+function showMyBooks() {
+    const section = document.getElementById("myBooksSection");
+    if (!section) return;
+    section.style.display = "block";
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    loadMyBooks();
 }
 
 async function getStudentBorrowings() {
@@ -594,6 +634,23 @@ async function loadDueDates() {
     }
 }
 
+async function loadMyBooks() {
+    const target = document.getElementById("myBooksResults");
+    if (!target) return;
+    target.innerHTML = '<div class="section-loading">Loading your borrowed books...</div>';
+    try {
+        const rows = activeBorrowings(await getStudentBorrowings());
+        rows.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+        if (!rows.length) {
+            target.innerHTML = '<div class="empty-state">You have no currently borrowed books.</div>';
+            return;
+        }
+        target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row)).join("")}</div>`;
+    } catch (error) {
+        target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
+    }
+}
+
 async function returnBook(borrowingId) {
     if (!confirm("Are you sure you want to return this book?")) return;
 
@@ -607,6 +664,7 @@ async function returnBook(borrowingId) {
 
         alert(data.message || "Book returned successfully.");
         await loadBorrowings();
+        await loadMyBooks();
     } catch (error) {
         console.error("Return error:", error);
         alert(error.message);
