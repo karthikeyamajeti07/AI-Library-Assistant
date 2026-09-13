@@ -363,6 +363,24 @@
 
         </div>
 
+
+        <div class="card">
+
+            <div class="card-icon">⏰</div>
+
+            <h2>Due Dates</h2>
+
+            <p>
+                Check upcoming due dates and avoid
+                late returns.
+            </p>
+
+            <button onclick="showDueDates()">
+                Check Dates
+            </button>
+
+        </div>
+
     </div>
 
 
@@ -428,6 +446,20 @@
 
     </div>
 
+    <!-- Due Dates -->
+
+    <div class="dashboard-section" id="dueDatesSection" style="display:none;">
+
+        <h2>⏰ Due Dates</h2>
+
+        <div class="section-actions">
+            <button onclick="hideDashboardSection('dueDatesSection')">Close</button>
+        </div>
+
+        <div id="dueDatesResults" class="section-loading">Loading your due dates...</div>
+
+    </div>
+
 </div>
 
 
@@ -462,6 +494,14 @@ function showBorrowBook() {
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     loadBorrowings();
     document.getElementById("borrowSearch")?.focus();
+}
+
+function showDueDates() {
+    const section = document.getElementById("dueDatesSection");
+    if (!section) return;
+    section.style.display = "block";
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    loadDueDates();
 }
 
 async function getStudentBorrowings() {
@@ -533,6 +573,23 @@ async function loadBorrowings() {
         target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row)).join("")}</div>`;
     } catch (error) {
         console.error("Borrowing history error:", error);
+        target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function loadDueDates() {
+    const target = document.getElementById("dueDatesResults");
+    if (!target) return;
+    target.innerHTML = '<div class="section-loading">Loading your due dates...</div>';
+    try {
+        const rows = activeBorrowings(await getStudentBorrowings());
+        rows.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+        if (!rows.length) {
+            target.innerHTML = '<div class="empty-state">You have no upcoming due dates.</div>';
+            return;
+        }
+        target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row, false)).join("")}</div>`;
+    } catch (error) {
         target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
     }
 }
