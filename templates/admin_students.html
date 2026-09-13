@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Manage Students - AI Library Assistant</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            color: #222;
+        }
+
+        .navbar {
+            background: #222;
+            color: white;
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .back {
+            color: white;
+            text-decoration: none;
+            background: #444;
+            padding: 8px 15px;
+            border-radius: 5px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .description {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .table-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0,0,0,.08);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #f0f2f5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 30px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="navbar">
+        <div class="logo">📚 AI Library Assistant — Students</div>
+
+        <a href="/admin-dashboard" class="back">
+            ← Back to Dashboard
+        </a>
+    </div>
+    <div id="studentModal" class="modal">
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <h2>📚 Student Borrowing History</h2>
+            <button class="close-btn" onclick="closeStudentDetails()">✕</button>
+        </div>
+
+        <div id="studentDetails">
+            Loading...
+        </div>
+
+    </div>
+</div>
+    <div class="container">
+
+        <h1>👥 Student Management</h1>
+
+        <p class="description"> 
+            View all registered students and their library activity. 
+        </p>
+
+<div style="margin-bottom: 20px;">
+    <input
+        type="text"
+        id="studentSearch"
+        placeholder="🔍 Search by name, Student ID, email or department..."
+        onkeyup="filterStudents()"
+        style="
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+        "
+    >
+</div>
+        <div class="table-box">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Books Borrowed</th>
+                        <th>Active Books</th>
+                        <th>Returned Books</th>
+                        <th>Overdue Books</th>
+                        <th>Registration Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="studentsTable">
+
+                    <tr>
+                        <td colspan="8" class="loading">
+                            Loading students...
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+
+    <script>
+
+        async function loadStudents() {
+
+            const table = document.getElementById("studentsTable");
+
+            try {
+
+                const response = await fetch("/api/admin/students");
+
+                const students = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(students.error || "Unable to load students");
+                }
+
+                table.innerHTML = "";
+
+                if (students.length === 0) {
+
+                    table.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="loading">
+                                No students found.
+                            </td>
+                        </tr>
+                    `;
+
+                    return;
+                }
+
+                students.forEach(student => {
+
+                    table.innerHTML += `
+                        <tr>
+
+                            <td>${student.student_id || "-"}</td>
+
+                            <td>${student.name || "-"}</td>
+
+                            <td>${student.email || "-"}</td>
+
+                            <td>${student.department || "-"}</td>
+
+                            <td>${student.books_borrowed || 0}</td>
+
+                            <td>${student.active_books || 0}</td>
+
+                            <td>${student.returned_books || 0}</td>
+
+                            <td>${student.overdue_books || 0}</td>
+
+                            <td>
+                                ${student.registration_date || "-"}
+                            </td>
+
+                            <td>
+                                <select
+                                    onchange="updateStudentStatus(${student.id}, this.value)"
+                                    class="status-select"
+                                >
+                                    <option value="Active" ${student.account_status === "Active" ? "selected" : ""}>
+                                        Active
+                                    </option>
+
+                                    <option value="Suspended" ${student.account_status === "Suspended" ? "selected" : ""}>
+                                        Suspended
+                                    </option>
+
+                                    <option value="Inactive" ${student.account_status === "Inactive" ? "selected" : ""}>
+                                        Inactive
+                                    </option>
+                                </select>
+                            </td>
+
+                            <td>
+                                <button onclick="viewStudentDetails(${student.id})">
+                                    View Details
+                                </button>
+                            </td>
+
+                        </tr>
+                    `;
+
+                });
+
+            } catch (error) {
+
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="error">
+                            ${error.message}
+                        </td>
+                    </tr>
+                `;
+
+            }
+        }
+        async function viewStudentDetails(studentId) {
+
+    const modal = document.getElementById("studentModal");
+    const details = document.getElementById("studentDetails");
+
+    modal.style.display = "block";
+    details.innerHTML = "<p>Loading borrowing history...</p>";
+
+    try {
+
+        const response = await fetch(
+            `/api/admin/students/${studentId}/borrowings`
+        );
+
+        const borrowings = await response.json();
+
+        if (!response.ok) {
+            details.innerHTML =
+                `<p class="error">${borrowings.error || "Unable to load history."}</p>`;
+            return;
+        }
+
+        if (borrowings.length === 0) {
+            details.innerHTML =
+                "<p>No borrowing history found for this student.</p>";
+            return;
+        }
+
+        let html = `
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Book ID</th>
+                        <th>Book Title</th>
+                        <th>Borrowed Date</th>
+                        <th>Due Date</th>
+                        <th>Returned Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        borrowings.forEach(book => {
+
+            const statusClass =
+                book.status === "returned"
+                ? "status-returned"
+                : "status-borrowed";
+
+            html += `
+                <tr>
+                    <td>${book.book_id || "-"}</td>
+                    <td>${book.title || "-"}</td>
+                    <td>${book.borrowed_at || "-"}</td>
+                    <td>${book.due_date || "-"}</td>
+                    <td>${book.returned_at || "-"}</td>
+                    <td class="${statusClass}">
+                        ${book.status || "-"}
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
+
+        details.innerHTML = html;
+
+    } catch (error) {
+
+        details.innerHTML =
+            "<p class='error'>Error loading borrowing history.</p>";
+    }
+}
+
+function closeStudentDetails() {
+    document.getElementById("studentModal").style.display = "none";
+}
+function filterStudents() {
+    const search = document
+        .getElementById("studentSearch")
+        .value
+        .toLowerCase()
+        .trim();
+
+    const rows = document.querySelectorAll("#studentsTable tr");
+
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+
+        if (text.includes(search)) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
+}
+        loadStudents();
+
+async function updateStudentStatus(studentId, status) {
+
+    try {
+        const response = await fetch(
+            `/api/admin/students/${studentId}/status`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    status: status
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            alert(result.error || "Unable to update status.");
+            return;
+        }
+
+        alert("Student status updated successfully.");
+
+    } catch (error) {
+        alert("Error updating student status.");
+    }
+}
+    </script>
+
+</body>
+</html>

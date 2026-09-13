@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Profile | AI Library Assistant</title>
+    <style>
+        *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+        .top{background:#172554;color:white;padding:18px 6%;display:flex;justify-content:space-between;align-items:center;gap:15px}
+        .top h1{margin:0;font-size:22px}.top a{color:white;text-decoration:none;border:1px solid rgba(255,255,255,.35);padding:9px 14px;border-radius:9px}
+        .wrap{max-width:1150px;margin:28px auto;padding:0 18px}.hero{margin-bottom:20px}.hero h2{margin:0 0 6px;font-size:30px}.hero p{margin:0;color:#667085}
+        .grid{display:grid;grid-template-columns:330px 1fr;gap:20px}.card{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:22px;box-shadow:0 8px 25px rgba(16,24,40,.06)}
+        .card h3{margin:0 0 18px}.profile-row{margin:13px 0}.label{font-size:12px;color:#667085;margin-bottom:5px}.value{font-weight:600;word-break:break-word}
+        input{width:100%;padding:12px;border:1px solid #d0d5dd;border-radius:9px;font-size:14px;margin-bottom:10px}button{border:0;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:600}
+        .primary{background:#2563eb;color:white}.return{background:#dc2626;color:white}.muted{color:#667085;font-size:14px}.success{color:#15803d}.error{color:#b91c1c}
+        .book{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:12px;display:flex;justify-content:space-between;gap:16px;align-items:center}.book h4{margin:0 0 6px}.book p{margin:4px 0;color:#667085;font-size:14px}
+        .status{font-size:13px;font-weight:600}.available{color:#15803d}.unavailable{color:#b91c1c}
+        .borrowed{border-left:4px solid #2563eb;padding-left:14px;margin-top:13px}.borrowed h4{margin:0 0 5px}.borrowed p{margin:4px 0;color:#667085;font-size:14px}
+        .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}.stat{background:#f8fafc;border-radius:10px;padding:12px;text-align:center}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:#667085}
+        @media(max-width:800px){.grid{grid-template-columns:1fr}.book{flex-direction:column;align-items:flex-start}.stats{grid-template-columns:1fr 1fr}}
+    </style>
+</head>
+<body>
+<header class="top"><h1>📚 AI Library Assistant</h1><a href="/student-dashboard">← Dashboard</a></header>
+<main class="wrap">
+    <div class="hero"><h2>Student Profile</h2><p>Manage your profile, borrow books, return books and track your library history.</p></div>
+    <div class="grid">
+        <section class="card">
+            <h3>👤 My Profile</h3>
+            <div id="profile"></div>
+            <hr style="border:0;border-top:1px solid #eee;margin:20px 0">
+            <h3>Edit Profile</h3>
+            <input id="name" placeholder="Full name">
+            <input id="department" placeholder="Department">
+            <button class="primary" onclick="updateProfile()">Save Changes</button>
+            <p id="profileMsg" class="muted"></p>
+            <div class="stats">
+                <div class="stat"><b id="activeCount">0</b><span>Active</span></div>
+                <div class="stat"><b id="historyCount">0</b><span>Total Borrowed</span></div>
+                <div class="stat"><b>3</b><span>Borrow Limit</span></div>
+            </div>
+        </section>
+
+        <section>
+            <div class="card">
+                <h3>🔎 Find & Borrow a Book</h3>
+                <input id="search" placeholder="Search title, author, category or Book ID..." onkeydown="if(event.key==='Enter') searchBooks()">
+                <button class="primary" onclick="searchBooks()">Search Books</button>
+                <div id="results" style="margin-top:10px"><p class="muted">Search for a book to borrow it.</p></div>
+            </div>
+
+            <div class="card" style="margin-top:20px">
+                <h3>📖 My Borrowing History</h3>
+                <div id="borrowings"><p class="muted">Loading...</p></div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+async function loadProfile(){
+    const r = await fetch('/api/student/profile');
+    const d = await r.json();
+
+    if(!r.ok){
+        document.getElementById('profile').innerHTML =
+            '<p class="error">'+(d.error || 'Unable to load profile')+'</p>';
+        return;
+    }
+
+    document.getElementById('profile').innerHTML = `
+        <div class="profile-row">
+            <div class="label">Name</div>
+            <div class="value">${esc(d.name)}</div>
+        </div>
+
+        <div class="profile-row">
+            <div class="label">Student ID</div>
+            <div class="value">${esc(d.student_id || '-')}</div>
+        </div>
+
+        <div class="profile-row">
+            <div class="label">Email</div>
+            <div class="value">${esc(d.email)}</div>
+        </div>
+
+        <div class="profile-row">
+            <div class="label">Department</div>
+            <div class="value">${esc(d.department || '-')}</div>
+        </div>
+
+        <div class="profile-row">
+            <div class="label">Account Status</div>
+            <div class="value">${esc(d.account_status || 'Active')}</div>
+        </div>
+    `;
+
+    document.getElementById('name').value = d.name || '';
+    document.getElementById('department').value = d.department || '';
+}
+async function updateProfile(){
+    const name=document.getElementById('name').value.trim(), department=document.getElementById('department').value.trim(), msg=document.getElementById('profileMsg');
+    const r=await fetch('/api/student/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department})}); const d=await r.json();
+    msg.textContent=d.message||d.error||'Something went wrong'; msg.className=r.ok?'success':'error'; if(r.ok) loadProfile();
+}
+async function searchBooks(){
+    const q=document.getElementById('search').value.trim(), box=document.getElementById('results'); if(!q){box.innerHTML='<p class="muted">Enter a search term.</p>';return;}
+    box.innerHTML='<p class="muted">Searching...</p>';
+    const r=await fetch('/api/search?q='+encodeURIComponent(q)); const books=await r.json();
+    if(!books.length){box.innerHTML='<p class="muted">No matching books found.</p>';return;}
+    box.innerHTML=books.map(b=>`<div class="book"><div><h4>${esc(b.title)}</h4><p>${esc(b.book_id)} • ${esc(b.author)}</p><p>Shelf: ${esc(b.shelf_location||'-')} • Available: ${b.available_copies}/${b.total_copies}</p><div class="status ${b.available_copies>0?'available':'unavailable'}">${b.available_copies>0?'✓ Available':'✗ Not Available'}</div></div>${b.available_copies>0?`<button class="primary" onclick="borrow('${escAttr(b.book_id)}')">Borrow</button>`:''}</div>`).join('');
+}
+async function borrow(bookId){
+    const r=await fetch('/api/student/borrow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({book_id:bookId})}); const d=await r.json();
+    alert(d.message ? d.message+'\nDue date: '+d.due_date : (d.error||'Unable to borrow')); if(r.ok){searchBooks();loadBorrowings();}
+}
+async function loadBorrowings(){
+    const r=await fetch('/api/student/borrowings'); const list=await r.json(); const box=document.getElementById('borrowings');
+    if(!r.ok){box.innerHTML='<p class="error">'+esc(list.error||'Unable to load borrowing history')+'</p>';return;}
+    const active=list.filter(x=>x.status==='borrowed'); document.getElementById('activeCount').textContent=active.length; document.getElementById('historyCount').textContent=list.length;
+    if(!list.length){box.innerHTML='<p class="muted">No borrowing records yet.</p>';return;}
+    box.innerHTML=list.map(x=>`<div class="borrowed"><h4>${esc(x.title)} <span class="status ${x.status==='borrowed'?'available':'muted'}">• ${esc(x.status)}</span></h4><p>Book ID: ${esc(x.book_id)} • Shelf: ${esc(x.shelf_location||'-')}</p><p>
+    Borrowed: ${esc(x.borrowed_at)} • 
+    Due: ${esc(x.due_date)}
+    ${x.status === 'borrowed' && new Date(x.due_date) < new Date()
+        ? ' • 🔴 OVERDUE'
+        : ''}
+</p>${x.status==='borrowed'?`<button class="return" onclick="returnBook(${x.id})">Return Book</button>`:`<p>Returned: ${esc(x.returned_at||'-')}</p>`}</div>`).join('');
+}
+async function returnBook(id){
+    if(!confirm('Return this book?')) return;
+    const r=await fetch('/api/student/return/'+id,{method:'POST'}); const d=await r.json(); alert(d.message||d.error||'Unable to return'); if(r.ok){loadBorrowings();searchBooks();}
+}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function escAttr(v){return String(v??'').replace(/[^A-Za-z0-9_-]/g,'');}
+loadProfile(); loadBorrowings();
+</script>
+</body>
+</html>

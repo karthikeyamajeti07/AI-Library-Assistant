@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Student Dashboard - AI Library Assistant</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            color: #222;
+        }
+
+        /* Navbar */
+
+        .navbar {
+            background: #222;
+            color: white;
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout {
+            background: #e74c3c;
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+        }
+
+        /* Main */
+
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .welcome {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+
+        .welcome h1 {
+            margin-top: 0;
+        }
+
+        .welcome p {
+            color: #666;
+        }
+
+        /* Cards */
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            transition: 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+        }
+
+        .card-icon {
+            font-size: 35px;
+            margin-bottom: 10px;
+        }
+
+        .card h2 {
+            margin: 8px 0;
+        }
+
+        .card p {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .card button {
+            border: none;
+            background: #222;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Search */
+
+        .dashboard-section {
+            background: white;
+            margin-top: 25px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+
+        .dashboard-section h2 {
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+
+        .section-actions button {
+            border: none;
+            background: #222;
+            color: white;
+            padding: 9px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .borrowed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .borrowed-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 18px;
+            background: #fafafa;
+        }
+
+        .borrowed-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 9px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .status-ok { background: #dff6e5; color: #18733a; }
+        .status-warning { background: #fff3cd; color: #8a6500; }
+        .status-danger { background: #fde2e2; color: #a12626; }
+
+        .return-btn {
+            margin-top: 10px;
+            border: none;
+            background: #e74c3c;
+            color: white;
+            padding: 9px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .empty-state, .section-loading {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+        }
+
+        .search-section {
+            background: white;
+            margin-top: 25px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 13px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .search-box button {
+            padding: 13px 22px;
+            border: none;
+            background: #222;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Responsive */
+
+        @media (max-width: 800px) {
+            .cards {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .search-box {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Navbar -->
+
+<div class="navbar">
+
+    <div class="logo">
+        📚 AI Library Assistant
+    </div>
+
+    <div class="user-area">
+
+        <span>
+            Welcome, {{ user.name }}
+        </span>
+
+        <a href="/logout" class="logout">
+            Logout
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- Main -->
+
+<div class="container">
+
+    <!-- Welcome -->
+
+    <div class="welcome">
+
+        <h1>
+            Student Dashboard
+        </h1>
+
+        <p>
+            Search books, check availability, ask the AI assistant,
+            and manage your library activity.
+        </p>
+
+    </div>
+
+
+    <!-- Dashboard Cards -->
+
+    <div class="cards">
+
+        <div class="card">
+
+            <div class="card-icon">🔎</div>
+
+            <h2>Search Books</h2>
+
+            <p>
+                Search books using Book ID, title, author,
+                category or keywords.
+            </p>
+
+            <button onclick="document.getElementById('search').focus()">
+                Search
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-icon">🤖</div>
+
+            <h2>AI Assistant</h2>
+
+            <p>
+                Ask questions about books, availability,
+                shelf locations and recommendations.
+            </p>
+
+            <button onclick="window.location.href='/ai-assistant'">
+                AI Assistant
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-icon">📚</div>
+
+            <h2>My Books</h2>
+
+            <p>
+                View books currently borrowed by you
+                and their due dates.
+            </p>
+
+            <button onclick="showMyBooks()">
+                View Books
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-icon">⏰</div>
+
+            <h2>Due Dates</h2>
+
+            <p>
+                Check upcoming due dates and avoid
+                late returns.
+            </p>
+
+            <button onclick="showDueDates()">
+                Check Dates
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-icon">👤</div>
+
+            <h2>My Profile</h2>
+
+            <p>
+                View your student information and
+                account details.
+            </p>
+
+            <button onclick="window.location.href='/student-profile'">
+                View Profile
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-icon">💡</div>
+
+            <h2>Recommendations</h2>
+
+            <p>
+                Get AI-powered book recommendations
+                based on your interests.
+            </p>
+
+            <button onclick="alert('AI recommendations will be connected next.')">
+                Get Recommendations
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- My Books -->
+    <div class="dashboard-section" id="myBooksSection" style="display:none;">
+        <h2>📚 My Books</h2>
+        <div class="section-actions">
+            <button onclick="loadMyBooks()">Refresh</button>
+            <button onclick="hideDashboardSection('myBooksSection')">Close</button>
+        </div>
+        <div id="myBooksResults" class="section-loading">Loading your borrowed books...</div>
+    </div>
+
+    <!-- Due Dates -->
+    <div class="dashboard-section" id="dueDatesSection" style="display:none;">
+        <h2>⏰ Due Dates</h2>
+        <div class="section-actions">
+            <button onclick="loadDueDates()">Refresh</button>
+            <button onclick="hideDashboardSection('dueDatesSection')">Close</button>
+        </div>
+        <div id="dueDatesResults" class="section-loading">Loading your due dates...</div>
+    </div>
+
+    <!-- Book Search -->
+
+    <div class="search-section">
+
+        <h2>🔎 Search Library Books</h2>
+
+        <p>
+            Search by Book ID, title, author or keyword.
+        </p>
+
+        <div class="search-box">
+
+            <input
+                type="text"
+                id="search"
+                placeholder="Example: B005, Python, Eric Matthes..."
+            >
+
+            <button onclick="searchBooks()">
+                Search
+            </button>
+
+        </div>
+
+        <div id="results"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function hideDashboardSection(id) {
+    const section = document.getElementById(id);
+    if (section) section.style.display = "none";
+}
+
+function showMyBooks() {
+    const section = document.getElementById("myBooksSection");
+    const due = document.getElementById("dueDatesSection");
+    if (due) due.style.display = "none";
+    if (section) {
+        section.style.display = "block";
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        loadMyBooks();
+    }
+}
+
+function showDueDates() {
+    const section = document.getElementById("dueDatesSection");
+    const books = document.getElementById("myBooksSection");
+    if (books) books.style.display = "none";
+    if (section) {
+        section.style.display = "block";
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        loadDueDates();
+    }
+}
+
+async function getStudentBorrowings() {
+    const response = await fetch("/api/student/borrowings");
+    if (!response.ok) {
+        let message = "Unable to load borrowing information.";
+        try {
+            const data = await response.json();
+            message = data.error || message;
+        } catch (_) {}
+        throw new Error(message);
+    }
+    return await response.json();
+}
+
+function formatDate(value) {
+    if (!value) return "-";
+    const date = new Date(value.includes("T") ? value : value.replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric"
+    });
+}
+
+function daysUntil(value) {
+    const due = new Date(value + "T23:59:59");
+    const now = new Date();
+    return Math.ceil((due - now) / 86400000);
+}
+
+function dueStatus(days) {
+    if (days < 0) return { text: `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`, cls: "status-danger" };
+    if (days === 0) return { text: "Due today", cls: "status-danger" };
+    if (days <= 3) return { text: `${days} day${days === 1 ? "" : "s"} left`, cls: "status-warning" };
+    return { text: `${days} days left`, cls: "status-ok" };
+}
+
+function activeBorrowings(rows) {
+    return (rows || []).filter(row => row.status === "borrowed");
+}
+
+function bookBorrowingCard(row, includeReturn = true) {
+    const days = daysUntil(row.due_date);
+    const status = dueStatus(days);
+    return `
+        <div class="borrowed-card">
+            <h3>${escapeHtml(row.title)}</h3>
+            <p><strong>Book ID:</strong> ${escapeHtml(row.book_id)}</p>
+            <p><strong>Author:</strong> ${escapeHtml(row.author || "-")}</p>
+            <p><strong>Borrowed:</strong> ${escapeHtml(formatDate(row.borrowed_at))}</p>
+            <p><strong>Due Date:</strong> ${escapeHtml(formatDate(row.due_date))}</p>
+            <p><strong>Shelf:</strong> ${escapeHtml(row.shelf_location || "-")}</p>
+            <p><strong>Status:</strong> <span class="status-badge ${status.cls}">${status.text}</span></p>
+            ${includeReturn ? `<button class="return-btn" onclick="returnBook(${Number(row.id)})">Return Book</button>` : ""}
+        </div>
+    `;
+}
+
+async function loadMyBooks() {
+    const target = document.getElementById("myBooksResults");
+    if (!target) return;
+    target.innerHTML = '<div class="section-loading">Loading your borrowed books...</div>';
+
+    try {
+        const rows = activeBorrowings(await getStudentBorrowings());
+        rows.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+        if (!rows.length) {
+            target.innerHTML = '<div class="empty-state">📚 You currently have no borrowed books.</div>';
+            return;
+        }
+        target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row)).join("")}</div>`;
+    } catch (error) {
+        console.error("My Books error:", error);
+        target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function loadDueDates() {
+    const target = document.getElementById("dueDatesResults");
+    if (!target) return;
+    target.innerHTML = '<div class="section-loading">Loading your due dates...</div>';
+
+    try {
+        const rows = activeBorrowings(await getStudentBorrowings());
+        rows.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+        if (!rows.length) {
+            target.innerHTML = '<div class="empty-state">✅ You have no upcoming due dates.</div>';
+            return;
+        }
+        target.innerHTML = `<div class="borrowed-grid">${rows.map(row => bookBorrowingCard(row, false)).join("")}</div>`;
+    } catch (error) {
+        console.error("Due Dates error:", error);
+        target.innerHTML = `<div class="empty-state">❌ ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function returnBook(borrowingId) {
+    if (!confirm("Are you sure you want to return this book?")) return;
+
+    try {
+        const response = await fetch(`/api/student/return/${Number(borrowingId)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to return the book.");
+
+        alert(data.message || "Book returned successfully.");
+        await loadMyBooks();
+        const dueSection = document.getElementById("dueDatesSection");
+        if (dueSection && dueSection.style.display !== "none") await loadDueDates();
+    } catch (error) {
+        console.error("Return error:", error);
+        alert(error.message);
+    }
+}
+
+async function searchBooks() {
+
+    const query = document.getElementById("search").value.trim();
+    const results = document.getElementById("results");
+
+    if (!query) {
+        results.innerHTML = "";
+        return;
+    }
+
+    results.innerHTML = "<p>Searching...</p>";
+
+    try {
+
+        const response = await fetch(
+            "/api/search?q=" + encodeURIComponent(query)
+        );
+
+        const books = await response.json();
+
+        if (books.length === 0) {
+
+            results.innerHTML =
+                "<p>No books found.</p>";
+
+            return;
+        }
+
+        results.innerHTML = books.map(book => `
+
+            <div style="
+                margin-top:15px;
+                padding:15px;
+                border:1px solid #ddd;
+                border-radius:8px;
+            ">
+
+                <h3>
+                    ${book.title}
+                </h3>
+
+                <p>
+                    <strong>Book ID:</strong>
+                    ${book.book_id}
+                </p>
+
+                <p>
+                    <strong>Author:</strong>
+                    ${book.author}
+                </p>
+
+                <p>
+                    <strong>Available:</strong>
+                    ${book.available_copies}
+                </p>
+
+                <p>
+                    <strong>Shelf:</strong>
+                    ${book.shelf_location}
+                </p>
+
+            </div>
+
+        `).join("");
+
+    } catch (error) {
+
+        results.innerHTML =
+            "<p>Unable to search books.</p>";
+
+    }
+}
+
+</script>
+
+</body>
+</html>

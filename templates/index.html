@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Library Assistant</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- HEADER -->
+        <header class="header">
+            <h1>📚 AI Library Assistant</h1>
+            <p>Find books quickly using Book ID, title, author, or keyword.</p>
+        </header>
+
+
+        <!-- SEARCH SECTION -->
+        <section class="search-section">
+
+            <div class="search-box">
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search for a book, author, Book ID..."
+                    autocomplete="off"
+                >
+
+                <button onclick="searchBooks()">
+                    🔍 Search
+                </button>
+
+            </div>
+
+            <p class="search-example">
+                Try: <b>B005</b> or <b>Python Crash Course</b>
+            </p>
+
+        </section>
+
+
+        <!-- SEARCH RESULTS -->
+        <section id="searchResults" class="results-section">
+
+            <!--
+                Books will appear here ONLY after searching.
+                Nothing is displayed when the page first loads.
+            -->
+
+        </section>
+
+
+        <!-- AI ASSISTANT -->
+        <section class="assistant-section">
+
+            <h2>🤖 Ask the AI Library Assistant</h2>
+
+            <div id="chatMessages" class="chat-messages">
+
+                <div class="message bot-message">
+                    Hello! 👋
+                    <br>
+                    Ask me about a book, its availability, shelf location,
+                    author, or other library information.
+                </div>
+
+            </div>
+
+
+            <div class="chat-input">
+
+                <input
+                    type="text"
+                    id="chatInput"
+                    placeholder="Ask something like: Is B005 available?"
+                    autocomplete="off"
+                >
+
+                <button onclick="sendMessage()">
+                    Send
+                </button>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- JAVASCRIPT -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>

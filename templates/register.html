@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Library Registration</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <header class="header">
+        <h1>📚 AI Library Assistant</h1>
+        <p>Create your student account</p>
+    </header>
+
+    <section class="login-section">
+
+        <div class="login-card">
+
+            <h2>📝 Register</h2>
+
+            {% if error %}
+                <div class="login-error">
+                    {{ error }}
+                </div>
+            {% endif %}
+
+            <form method="POST" action="/register">
+
+                <div class="form-group">
+                    <label>Name</label>
+
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="Enter your name"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Student ID</label>
+
+                    <input
+                        type="text"
+                        name="student_id"
+                        placeholder="Enter your student ID"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Department</label>
+
+                    <input
+                        type="text"
+                        name="department"
+                        placeholder="Example: CSE"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+
+                    <input
+                        type="password"
+                        name="password"
+                        placeholder="Create a password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="login-button">
+                    Create Account
+                </button>
+
+            </form>
+
+            <p class="register-link">
+                Already have an account?
+                <a href="/login">Login</a>
+            </p>
+
+        </div>
+
+    </section>
+
+</div>
+
+</body>
+</html>
