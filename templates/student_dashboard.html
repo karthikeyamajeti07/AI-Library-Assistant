@@ -115,6 +115,10 @@
             cursor: pointer;
         }
 
+        .borrow-card, .my-books-card {
+            grid-column: 2;
+        }
+
         /* Search */
 
         .dashboard-section {
@@ -229,6 +233,10 @@
         @media (max-width: 800px) {
             .cards {
                 grid-template-columns: 1fr;
+            }
+
+            .borrow-card, .my-books-card {
+                grid-column: auto;
             }
 
             .navbar {
@@ -364,7 +372,7 @@
         </div>
 
 
-        <div class="card">
+        <div class="card borrow-card">
 
             <div class="card-icon">📚</div>
 
@@ -400,7 +408,7 @@
         </div>
 
 
-        <div class="card">
+        <div class="card my-books-card">
 
             <div class="card-icon">📖</div>
 
