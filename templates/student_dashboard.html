@@ -294,6 +294,24 @@
 
         <div class="card">
 
+            <div class="card-icon">🔎</div>
+
+            <h2>Search Books</h2>
+
+            <p>
+                Search books using Book ID, title, author,
+                category or keywords.
+            </p>
+
+            <button onclick="showSearchBooks()">
+                Search
+            </button>
+
+        </div>
+
+
+        <div class="card">
+
             <div class="card-icon">🤖</div>
 
             <h2>AI Assistant</h2>
@@ -404,11 +422,15 @@
         <div id="dueDatesResults" class="section-loading">Loading your due dates...</div>
     </div>
 
-    <!-- Book Search -->
+    <!-- Search Books -->
 
-    <div class="search-section">
+    <div class="dashboard-section" id="searchBooksSection" style="display:none;">
 
-        <h2>🔎 Search Library Books</h2>
+        <h2>🔎 Search Books</h2>
+
+        <div class="section-actions">
+            <button onclick="hideDashboardSection('searchBooksSection')">Close</button>
+        </div>
 
         <p>
             Search by Book ID, title, author or keyword.
@@ -449,6 +471,14 @@ function escapeHtml(value) {
 function hideDashboardSection(id) {
     const section = document.getElementById(id);
     if (section) section.style.display = "none";
+}
+
+function showSearchBooks() {
+    const section = document.getElementById("searchBooksSection");
+    if (!section) return;
+    section.style.display = "block";
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("search")?.focus();
 }
 
 function showMyBooks() {
