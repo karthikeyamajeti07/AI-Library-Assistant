@@ -354,19 +354,19 @@
         </div>
 
 
-        <div class="card">
+        <div class="card my-books-card">
 
-            <div class="card-icon">👤</div>
+            <div class="card-icon">📖</div>
 
-            <h2>My Profile</h2>
+            <h2>My Books</h2>
 
             <p>
-                View your student information and
-                account details.
+                View the books you currently have
+                borrowed and return them.
             </p>
 
-            <button onclick="window.location.href='/student-profile'">
-                View Profile
+            <button onclick="showMyBooks()">
+                View Books
             </button>
 
         </div>
@@ -408,19 +408,19 @@
         </div>
 
 
-        <div class="card my-books-card">
+        <div class="card">
 
-            <div class="card-icon">📖</div>
+            <div class="card-icon">👤</div>
 
-            <h2>My Books</h2>
+            <h2>My Profile</h2>
 
             <p>
-                View the books you currently have
-                borrowed and return them.
+                View your student information and
+                account details.
             </p>
 
-            <button onclick="showMyBooks()">
-                View Books
+            <button onclick="window.location.href='/student-profile'">
+                View Profile
             </button>
 
         </div>
@@ -666,8 +666,10 @@ function activeBorrowings(rows) {
 }
 
 function bookBorrowingCard(row, includeReturn = true) {
-    const days = daysUntil(row.due_date);
-    const status = dueStatus(days);
+    const isBorrowed = row.status === "borrowed";
+    const status = isBorrowed
+        ? dueStatus(daysUntil(row.due_date))
+        : { text: "Returned", cls: "status-ok" };
     return `
         <div class="borrowed-card">
             <h3>${escapeHtml(row.title)}</h3>
@@ -677,7 +679,7 @@ function bookBorrowingCard(row, includeReturn = true) {
             <p><strong>Due Date:</strong> ${escapeHtml(formatDate(row.due_date))}</p>
             <p><strong>Shelf:</strong> ${escapeHtml(row.shelf_location || "-")}</p>
             <p><strong>Status:</strong> <span class="status-badge ${status.cls}">${status.text}</span></p>
-            ${includeReturn ? `<button class="return-btn" onclick="returnBook(${Number(row.id)})">Return Book</button>` : ""}
+            ${includeReturn && isBorrowed ? `<button class="return-btn" onclick="returnBook(${Number(row.id)})">Return Book</button>` : ""}
         </div>
     `;
 }
