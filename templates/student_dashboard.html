@@ -644,27 +644,27 @@ async function searchBooks() {
             ">
 
                 <h3>
-                    ${book.title}
+                    ${escapeHtml(book.title)}
                 </h3>
 
                 <p>
                     <strong>Book ID:</strong>
-                    ${book.book_id}
+                    ${escapeHtml(book.book_id)}
                 </p>
 
                 <p>
                     <strong>Author:</strong>
-                    ${book.author}
+                    ${escapeHtml(book.author)}
                 </p>
 
                 <p>
                     <strong>Available:</strong>
-                    ${book.available_copies}
+                    ${escapeHtml(String(book.available_copies))}
                 </p>
 
                 <p>
                     <strong>Shelf:</strong>
-                    ${book.shelf_location}
+                    ${escapeHtml(book.shelf_location)}
                 </p>
 
             </div>

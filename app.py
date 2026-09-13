@@ -1,4 +1,3 @@
-from click import prompt
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from dotenv import load_dotenv
 from google import genai
@@ -6,6 +5,7 @@ import os
 import re
 import sqlite3
 import json
+import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -16,7 +16,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-library-secret-change-me")
+app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
 
@@ -24,6 +24,7 @@ DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -1431,7 +1432,7 @@ def admin_students_page():
     if session.get("role") != "admin":
         return redirect(url_for("student_dashboard"))
 
-    return render_template("admin-students.html")
+    return render_template("admin_students.html")
 @app.route("/api/admin/students")
 def admin_students():
     if "user_id" not in session:
@@ -1941,6 +1942,15 @@ def delete_book(book_id):
         return jsonify({"error": "Book not found."}), 404
 
     conn = get_db_connection()
+    borrowing = conn.execute(
+        "SELECT 1 FROM borrowings WHERE book_id = ? LIMIT 1",
+        (existing["book_id"],)
+    ).fetchone()
+    if borrowing:
+        conn.close()
+        return jsonify({
+            "error": "This book cannot be deleted because it has borrowing history."
+        }), 409
     conn.execute("DELETE FROM books WHERE UPPER(book_id) = UPPER(?)", (book_id,))
     conn.commit()
     conn.close()
@@ -2025,6 +2035,15 @@ def chat():
             book=exact
             if book:
                 conn=get_db_connection()
+                student = conn.execute(
+                    "SELECT account_status FROM users WHERE id = ?",
+                    (session["user_id"],)
+                ).fetchone()
+                if student and student["account_status"] != "Active":
+                    conn.close()
+                    return jsonify({
+                        "reply": f"Your library account is {student['account_status']}. You cannot borrow books."
+                    })
                 active=conn.execute("SELECT COUNT(*) AS c FROM borrowings WHERE user_id=? AND status='borrowed'",(session["user_id"],)).fetchone()["c"]
                 duplicate=conn.execute("SELECT COUNT(*) AS c FROM borrowings WHERE user_id=? AND book_id=? AND status='borrowed'",(session["user_id"],book["book_id"])).fetchone()["c"]
                 if duplicate:
@@ -2350,7 +2369,7 @@ init_admin_features()
 if __name__ == "__main__":
 
     app.run(
-        debug=True,
+        debug=False,
         host="127.0.0.1",
         port=5000
     )

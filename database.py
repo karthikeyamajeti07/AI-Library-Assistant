@@ -1,7 +1,8 @@
 import sqlite3
+import os
 from werkzeug.security import generate_password_hash
 
-DATABASE = "database.db"
+DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
 
 
 def create_database():
@@ -22,8 +23,8 @@ def create_database():
     """)
 
     # Create default admin account
-    admin_email = "admin@library.com"
-    admin_password = "admin123"
+    admin_email = os.getenv("LIBRARY_ADMIN_EMAIL", "admin@library.com").strip().lower()
+    admin_password = os.getenv("LIBRARY_ADMIN_PASSWORD")
 
     cursor.execute(
         "SELECT id FROM users WHERE email = ?",
@@ -32,7 +33,7 @@ def create_database():
 
     admin_exists = cursor.fetchone()
 
-    if not admin_exists:
+    if not admin_exists and admin_password:
         hashed_password = generate_password_hash(admin_password)
 
         cursor.execute("""
@@ -52,9 +53,8 @@ def create_database():
     conn.close()
 
     print("Database created successfully!")
-    print("Default admin:")
-    print("Email: admin@library.com")
-    print("Password: admin123")
+    if not admin_exists and not admin_password:
+        print("No admin account was created. Set LIBRARY_ADMIN_PASSWORD and run again.")
 
 
 if __name__ == "__main__":
