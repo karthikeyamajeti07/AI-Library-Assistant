@@ -41,19 +41,6 @@
             </div>
         </section>
 
-        <section>
-            <div class="card">
-                <h3>🔎 Find & Borrow a Book</h3>
-                <input id="search" placeholder="Search title, author, category or Book ID..." onkeydown="if(event.key==='Enter') searchBooks()">
-                <button class="primary" onclick="searchBooks()">Search Books</button>
-                <div id="results" style="margin-top:10px"><p class="muted">Search for a book to borrow it.</p></div>
-            </div>
-
-            <div class="card" style="margin-top:20px">
-                <h3>📖 My Borrowing History</h3>
-                <div id="borrowings"><p class="muted">Loading...</p></div>
-            </div>
-        </section>
     </div>
 </main>
 
@@ -103,37 +90,8 @@ async function updateProfile(){
     const r=await fetch('/api/student/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department})}); const d=await r.json();
     msg.textContent=d.message||d.error||'Something went wrong'; msg.className=r.ok?'success':'error'; if(r.ok) loadProfile();
 }
-async function searchBooks(){
-    const q=document.getElementById('search').value.trim(), box=document.getElementById('results'); if(!q){box.innerHTML='<p class="muted">Enter a search term.</p>';return;}
-    box.innerHTML='<p class="muted">Searching...</p>';
-    const r=await fetch('/api/search?q='+encodeURIComponent(q)); const books=await r.json();
-    if(!books.length){box.innerHTML='<p class="muted">No matching books found.</p>';return;}
-    box.innerHTML=books.map(b=>`<div class="book"><div><h4>${esc(b.title)}</h4><p>${esc(b.book_id)} • ${esc(b.author)}</p><p>Shelf: ${esc(b.shelf_location||'-')} • Available: ${b.available_copies}/${b.total_copies}</p><div class="status ${b.available_copies>0?'available':'unavailable'}">${b.available_copies>0?'✓ Available':'✗ Not Available'}</div></div>${b.available_copies>0?`<button class="primary" onclick="borrow('${escAttr(b.book_id)}')">Borrow</button>`:''}</div>`).join('');
-}
-async function borrow(bookId){
-    const r=await fetch('/api/student/borrow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({book_id:bookId})}); const d=await r.json();
-    alert(d.message ? d.message+'\nDue date: '+d.due_date : (d.error||'Unable to borrow')); if(r.ok){searchBooks();loadBorrowings();}
-}
-async function loadBorrowings(){
-    const r=await fetch('/api/student/borrowings'); const list=await r.json(); const box=document.getElementById('borrowings');
-    if(!r.ok){box.innerHTML='<p class="error">'+esc(list.error||'Unable to load borrowing history')+'</p>';return;}
-    const active=list.filter(x=>x.status==='borrowed'); document.getElementById('activeCount').textContent=active.length; document.getElementById('historyCount').textContent=list.length;
-    if(!list.length){box.innerHTML='<p class="muted">No borrowing records yet.</p>';return;}
-    box.innerHTML=list.map(x=>`<div class="borrowed"><h4>${esc(x.title)} <span class="status ${x.status==='borrowed'?'available':'muted'}">• ${esc(x.status)}</span></h4><p>Book ID: ${esc(x.book_id)} • Shelf: ${esc(x.shelf_location||'-')}</p><p>
-    Borrowed: ${esc(x.borrowed_at)} • 
-    Due: ${esc(x.due_date)}
-    ${x.status === 'borrowed' && new Date(x.due_date) < new Date()
-        ? ' • 🔴 OVERDUE'
-        : ''}
-</p>${x.status==='borrowed'?`<button class="return" onclick="returnBook(${x.id})">Return Book</button>`:`<p>Returned: ${esc(x.returned_at||'-')}</p>`}</div>`).join('');
-}
-async function returnBook(id){
-    if(!confirm('Return this book?')) return;
-    const r=await fetch('/api/student/return/'+id,{method:'POST'}); const d=await r.json(); alert(d.message||d.error||'Unable to return'); if(r.ok){loadBorrowings();searchBooks();}
-}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-function escAttr(v){return String(v??'').replace(/[^A-Za-z0-9_-]/g,'');}
-loadProfile(); loadBorrowings();
+loadProfile();
 </script>
 </body>
 </html>
