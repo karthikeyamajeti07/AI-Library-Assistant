@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: ai-library-assistant
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LIBRARY_ADMIN_EMAIL
+        value: admin@library.com
+      - key: LIBRARY_ADMIN_PASSWORD
+        sync: false
+      - key: PORT
+        value: 10000

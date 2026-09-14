@@ -8,6 +8,13 @@ import json
 import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
 
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+except Exception:
+    psycopg2 = None
+    RealDictCursor = None
+
 
 # ==========================================
 # LOAD ENVIRONMENT VARIABLES
@@ -19,9 +26,32 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+class PostgresConnection:
+    def __init__(self, url):
+        if psycopg2 is None:
+            raise RuntimeError("psycopg2 is required when DATABASE_URL is set.")
+        self.conn = psycopg2.connect(url, sslmode="require")
+        self.cursor = None
+
+    def execute(self, sql, params=None):
+        self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
+        self.cursor.execute(sql, params or ())
+        return self.cursor
+
+    def commit(self):
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
 
 
 def get_db_connection():
+    if DATABASE_URL:
+        return PostgresConnection(DATABASE_URL)
+
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -2386,6 +2416,6 @@ if __name__ == "__main__":
 
     app.run(
         debug=False,
-        host="127.0.0.1",
-        port=5000
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "5000"))
     )
