@@ -1358,8 +1358,11 @@ def register():
     hashed_password = generate_password_hash(password)
 
     conn.execute("""
-        INSERT INTO users (name, email, password, role, student_id, department)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO users (
+            name, email, password, role, student_id, department,
+            registration_date, account_status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 'Active')
     """, (name, email, hashed_password, "student", student_id, department))
 
     conn.commit()
@@ -2309,9 +2312,9 @@ def admin_analytics_api():
     popular_books = conn.execute("SELECT book_id,title,times_borrowed,rating FROM books ORDER BY times_borrowed DESC, rating DESC LIMIT 10").fetchall()
     active_students = conn.execute("""
         SELECT u.name,u.student_id,COUNT(br.id) total_borrowed,
-               SUM(CASE WHEN br.status='borrowed' THEN 1 ELSE 0 END) active_books
-        FROM users u JOIN borrowings br ON br.user_id=u.id
-        WHERE u.role='student' GROUP BY u.id ORDER BY total_borrowed DESC LIMIT 10
+               COALESCE(SUM(CASE WHEN br.status='borrowed' THEN 1 ELSE 0 END), 0) active_books
+        FROM users u LEFT JOIN borrowings br ON br.user_id=u.id
+        WHERE u.role='student' GROUP BY u.id ORDER BY total_borrowed DESC, u.name LIMIT 10
     """).fetchall()
     categories = conn.execute("SELECT COALESCE(main_category,'Uncategorized') category, COUNT(*) book_count, COALESCE(SUM(times_borrowed),0) borrow_count FROM books GROUP BY main_category ORDER BY borrow_count DESC LIMIT 10").fetchall()
     trends = conn.execute("""
