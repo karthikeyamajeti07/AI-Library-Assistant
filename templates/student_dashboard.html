@@ -671,12 +671,15 @@ function formatDate(value) {
 }
 
 function daysUntil(value) {
-    const due = new Date(value + "T23:59:59");
+    if (!value) return NaN;
+    const due = new Date(value.includes("T") ? value : value.replace(" ", "T") + "T23:59:59");
+    if (Number.isNaN(due.getTime())) return NaN;
     const now = new Date();
     return Math.ceil((due - now) / 86400000);
 }
 
 function dueStatus(days) {
+    if (Number.isNaN(days)) return { text: "Due date unavailable", cls: "status-warning" };
     if (days < 0) return { text: `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`, cls: "status-danger" };
     if (days === 0) return { text: "Due today", cls: "status-danger" };
     if (days <= 3) return { text: `${days} day${days === 1 ? "" : "s"} left`, cls: "status-warning" };
