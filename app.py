@@ -33,7 +33,8 @@ class PostgresConnection:
     def __init__(self, url):
         if psycopg2 is None:
             raise RuntimeError("psycopg2 is required when DATABASE_URL is set.")
-        self.conn = psycopg2.connect(url, sslmode="require" if url.startswith("postgres://") else None)
+        sslmode = "require" if url.startswith(("postgres://", "postgresql://")) else None
+        self.conn = psycopg2.connect(url, sslmode=sslmode)
         self.cursor = None
 
     def execute(self, sql, params=None):
@@ -47,6 +48,8 @@ class PostgresConnection:
         sql = sql.replace("julianday(br.due_date)-julianday(date('now'))", "br.due_date - CURRENT_DATE")
         sql = sql.replace("MIN(total_copies, available_copies+1)", "LEAST(total_copies, available_copies + 1)")
         sql = sql.replace("sqlite_master", "information_schema.tables")
+        sql = sql.replace("substr(CAST(borrowed_at as text),1,7)", "TO_CHAR(borrowed_at, 'YYYY-MM')")
+        sql = sql.replace("substr(borrowed_at,1,7)", "TO_CHAR(borrowed_at, 'YYYY-MM')")
         sql = sql.replace("INSERT OR IGNORE INTO library_settings (key,value) VALUES (?,?)", "INSERT INTO library_settings (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING")
         self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         self.cursor.execute(sql, params or ())
@@ -2470,8 +2473,10 @@ def admin_analytics_api():
     """).fetchall()
     categories = conn.execute("SELECT COALESCE(main_category,'Uncategorized') category, COUNT(*) book_count, COALESCE(SUM(times_borrowed),0) borrow_count FROM books GROUP BY main_category ORDER BY borrow_count DESC LIMIT 10").fetchall()
     trends = conn.execute("""
-        SELECT substr(borrowed_at,1,7) month, COUNT(*) borrow_count
-        FROM borrowings GROUP BY substr(borrowed_at,1,7) ORDER BY month DESC LIMIT 12
+        SELECT TO_CHAR(borrowed_at, 'YYYY-MM') AS month, COUNT(*) AS borrow_count
+        FROM borrowings
+        GROUP BY TO_CHAR(borrowed_at, 'YYYY-MM')
+        ORDER BY month DESC LIMIT 12
     """).fetchall()
     ai_counts = conn.execute("SELECT COUNT(*) total_queries, SUM(CASE WHEN intent='borrow' THEN 1 ELSE 0 END) ai_borrows, SUM(CASE WHEN intent='return' THEN 1 ELSE 0 END) ai_returns, SUM(CASE WHEN intent='recommendation' THEN 1 ELSE 0 END) recommendations FROM ai_activity").fetchone()
     ai_intents = conn.execute("SELECT intent,COUNT(*) count FROM ai_activity GROUP BY intent ORDER BY count DESC").fetchall()
