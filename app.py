@@ -33,10 +33,21 @@ class PostgresConnection:
     def __init__(self, url):
         if psycopg2 is None:
             raise RuntimeError("psycopg2 is required when DATABASE_URL is set.")
-        self.conn = psycopg2.connect(url, sslmode="require")
+        self.conn = psycopg2.connect(url, sslmode="require" if url.startswith("postgres://") else None)
         self.cursor = None
 
     def execute(self, sql, params=None):
+        sql = sql.replace("?", "%s")
+        sql = sql.replace("AUTOINCREMENT", "")
+        sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
+        sql = sql.replace("date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')", "CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
+        sql = sql.replace("date(br.due_date) < date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')", "br.due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
+        sql = sql.replace("date(due_date)<date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')", "due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
+        sql = sql.replace("julianday(date('now'))", "CURRENT_DATE")
+        sql = sql.replace("julianday(br.due_date)-julianday(date('now'))", "br.due_date - CURRENT_DATE")
+        sql = sql.replace("MIN(total_copies, available_copies+1)", "LEAST(total_copies, available_copies + 1)")
+        sql = sql.replace("sqlite_master", "information_schema.tables")
+        sql = sql.replace("INSERT OR IGNORE INTO library_settings (key,value) VALUES (?,?)", "INSERT INTO library_settings (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING")
         self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         self.cursor.execute(sql, params or ())
         return self.cursor
@@ -61,6 +72,79 @@ def get_db_connection():
 def init_database():
     """Create the application tables and seed the 50 starter books once."""
     conn = get_db_connection()
+
+    if DATABASE_URL:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'student',
+                student_id TEXT UNIQUE,
+                department TEXT,
+                registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                account_status TEXT DEFAULT 'Active'
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS books (
+                book_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                author TEXT NOT NULL,
+                main_category TEXT,
+                sub_category TEXT,
+                isbn TEXT,
+                publisher TEXT,
+                year INTEGER,
+                language TEXT,
+                description TEXT,
+                keywords TEXT,
+                edition TEXT,
+                total_copies INTEGER NOT NULL DEFAULT 1,
+                available_copies INTEGER NOT NULL DEFAULT 0,
+                shelf_location TEXT,
+                cover_image TEXT,
+                times_borrowed INTEGER NOT NULL DEFAULT 0,
+                rating REAL NOT NULL DEFAULT 0,
+                difficulty_level TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS borrowings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                book_id TEXT NOT NULL,
+                borrowed_at TIMESTAMP NOT NULL,
+                due_date DATE NOT NULL,
+                returned_at TIMESTAMP,
+                status TEXT NOT NULL DEFAULT 'borrowed',
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (book_id) REFERENCES books(book_id)
+            )
+        """)
+        conn.commit()
+        count = conn.execute("SELECT COUNT(*) AS count FROM books").fetchone()["count"]
+        if count == 0:
+            for b in INITIAL_BOOKS:
+                conn.execute("""
+                    INSERT INTO books (
+                        book_id, title, author, main_category, sub_category, isbn,
+                        publisher, year, language, description, keywords, edition,
+                        total_copies, available_copies, shelf_location, cover_image,
+                        times_borrowed, rating, difficulty_level
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    b["book_id"], b["title"], b["author"], b["main_category"],
+                    b["sub_category"], b["isbn"], b["publisher"], b["year"],
+                    b["language"], b["description"], json.dumps(b["keywords"]),
+                    b["edition"], b["total_copies"], b["available_copies"],
+                    b["shelf_location"], b["cover_image"], b["times_borrowed"],
+                    b["rating"], b["difficulty_level"]
+                ))
+        conn.commit()
+        conn.close()
+        return
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -1392,7 +1476,7 @@ def register():
             name, email, password, role, student_id, department,
             registration_date, account_status
         )
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 'Active')
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Active')
     """, (name, email, hashed_password, "student", student_id, department))
 
     conn.commit()
@@ -1506,7 +1590,7 @@ def admin_students():
             SUM(
                 CASE
                     WHEN b.status = 'borrowed'
-                    AND b.due_date < datetime('now')
+                    AND b.due_date < CURRENT_DATE
                     THEN 1
                     ELSE 0
                 END
@@ -1715,7 +1799,11 @@ def borrow_book():
         "SELECT COUNT(*) AS count FROM borrowings WHERE user_id = ? AND status = 'borrowed'",
         (session["user_id"],)
     ).fetchone()["count"]
-    max_books = int(conn.execute("SELECT value FROM library_settings WHERE key='max_books_per_student'").fetchone()["value"]) if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='library_settings'").fetchone() else 3
+    try:
+        max_row = conn.execute("SELECT value FROM library_settings WHERE key='max_books_per_student'").fetchone()
+        max_books = int(max_row["value"]) if max_row else 3
+    except Exception:
+        max_books = 3
     if active_count >= max_books:
         conn.close()
         return jsonify({"error": f"Borrowing limit reached. You can have up to {max_books} active books."}), 400
@@ -1731,7 +1819,11 @@ def borrow_book():
     from datetime import datetime, timedelta
     now = datetime.now()
     borrowed_at = now.strftime("%Y-%m-%d %H:%M:%S")
-    days = int(conn.execute("SELECT value FROM library_settings WHERE key='borrowing_period_days'").fetchone()["value"]) if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='library_settings'").fetchone() else 14
+    try:
+        days_row = conn.execute("SELECT value FROM library_settings WHERE key='borrowing_period_days'").fetchone()
+        days = int(days_row["value"]) if days_row else 14
+    except Exception:
+        days = 14
     due_date = (now + timedelta(days=days)).strftime("%Y-%m-%d")
 
     conn.execute("""
@@ -2120,7 +2212,7 @@ def chat():
                     conn.close(); return jsonify({"reply":f"You do not currently have **{book['title']}** borrowed."})
                 from datetime import datetime
                 conn.execute("UPDATE borrowings SET returned_at=?, status='returned' WHERE id=?",(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),row["id"]))
-                conn.execute("UPDATE books SET available_copies=MIN(total_copies, available_copies+1) WHERE book_id=?",(book["book_id"],))
+                conn.execute("UPDATE books SET available_copies=LEAST(total_copies, available_copies+1) WHERE book_id=?",(book["book_id"],))
                 conn.commit(); conn.close()
                 return jsonify({"reply":f"✅ **{book['title']}** has been returned successfully."})
 
@@ -2201,6 +2293,36 @@ def chat():
 
 def init_admin_features():
     conn = get_db_connection()
+    if DATABASE_URL:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS library_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        defaults = {
+            "max_books_per_student": "3",
+            "borrowing_period_days": "14",
+            "overdue_grace_days": "0",
+            "library_name": "AI Library Assistant",
+            "ai_enabled": "1"
+        }
+        for key, value in defaults.items():
+            conn.execute("INSERT INTO library_settings (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING", (key, value))
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ai_activity (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                message TEXT NOT NULL,
+                intent TEXT NOT NULL DEFAULT 'general',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        """)
+        conn.commit()
+        conn.close()
+        return
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS library_settings (
             key TEXT PRIMARY KEY,
@@ -2246,7 +2368,7 @@ def log_ai_activity(message):
         intent = "search"
     try:
         conn = get_db_connection()
-        conn.execute("INSERT INTO ai_activity (user_id,message,intent,created_at) VALUES (?,?,?,datetime('now'))",
+        conn.execute("INSERT INTO ai_activity (user_id,message,intent,created_at) VALUES (%s,%s,%s,CURRENT_TIMESTAMP)",
                      (session.get("user_id"), message[:500], intent))
         conn.commit()
         conn.close()
@@ -2263,9 +2385,9 @@ def admin_query_rows(status="all", search=""):
     elif status == "returned":
         where.append("br.status='returned'")
     elif status == "overdue":
-        where.append("br.status='borrowed' AND date(br.due_date) < date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')")
+        where.append("br.status='borrowed' AND br.due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
     if search:
-        where.append("(u.name LIKE ? OR u.student_id LIKE ? OR b.book_id LIKE ? OR b.title LIKE ?)")
+        where.append("(u.name LIKE %s OR u.student_id LIKE %s OR b.book_id LIKE %s OR b.title LIKE %s)")
         q = f"%{search}%"
         params += [q, q, q, q]
     clause = (" WHERE " + " AND ".join(where)) if where else ""
@@ -2273,10 +2395,10 @@ def admin_query_rows(status="all", search=""):
         SELECT br.id, br.user_id, u.name AS student_name, u.student_id, u.email,
                br.book_id, b.title, b.author, b.shelf_location,
                br.borrowed_at, br.due_date, br.returned_at, br.status,
-               CASE WHEN br.status='borrowed' AND date(br.due_date) < date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')
+               CASE WHEN br.status='borrowed' AND br.due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)
                     THEN 1 ELSE 0 END AS overdue,
                CASE WHEN br.status='borrowed'
-                    THEN CAST(julianday(br.due_date)-julianday(date('now')) AS INTEGER)
+                    THEN CAST(br.due_date - CURRENT_DATE AS INTEGER)
                     ELSE NULL END AS days_remaining
         FROM borrowings br
         JOIN users u ON u.id=br.user_id
@@ -2317,7 +2439,7 @@ def admin_return_book(borrowing_id):
     from datetime import datetime
     returned_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("UPDATE borrowings SET status='returned', returned_at=? WHERE id=?", (returned_at, borrowing_id))
-    conn.execute("UPDATE books SET available_copies=MIN(total_copies, available_copies+1) WHERE book_id=?", (row["book_id"],))
+    conn.execute("UPDATE books SET available_copies=LEAST(total_copies, available_copies+1) WHERE book_id=?", (row["book_id"],))
     conn.commit()
     conn.close()
     return jsonify({"success":True, "message":f"{row['title']} returned successfully."})
@@ -2336,7 +2458,7 @@ def admin_analytics_api():
           (SELECT COALESCE(SUM(available_copies),0) FROM books) AS available_copies,
           (SELECT COUNT(*) FROM borrowings WHERE status='borrowed') AS currently_borrowed,
           (SELECT COUNT(*) FROM borrowings WHERE status='returned') AS total_returns,
-          (SELECT COUNT(*) FROM borrowings WHERE status='borrowed' AND date(due_date)<date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')) AS overdue,
+          (SELECT COUNT(*) FROM borrowings WHERE status='borrowed' AND due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)) AS overdue,
           (SELECT COUNT(*) FROM users WHERE role='student') AS students
     """).fetchone()
     popular_books = conn.execute("SELECT book_id,title,times_borrowed,rating FROM books ORDER BY times_borrowed DESC, rating DESC LIMIT 10").fetchall()
