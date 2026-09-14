@@ -9,7 +9,7 @@ Files in this package:
 - static/style.css: existing shared stylesheet.
 
 IMPORTANT:
-1. Do NOT delete, rename, recreate, or replace database.db.
+1. Use the Render PostgreSQL DATABASE_URL environment variable as the single authoritative database link for the deployed app.
 2. Backup your current app.py before replacing it.
 3. Put app.py in C:\Libraryagent\app.py.
 4. Put admin_dashboard.html and admin-students.html in templates\.

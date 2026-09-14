@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 from google import genai
 import os
 import re
-import sqlite3
 import json
 import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -25,7 +24,6 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
-DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
@@ -33,24 +31,12 @@ class PostgresConnection:
     def __init__(self, url):
         if psycopg2 is None:
             raise RuntimeError("psycopg2 is required when DATABASE_URL is set.")
-        sslmode = "require" if url.startswith(("postgres://", "postgresql://")) else None
+        sslmode = "require"
         self.conn = psycopg2.connect(url, sslmode=sslmode)
         self.cursor = None
 
     def execute(self, sql, params=None):
         sql = sql.replace("?", "%s")
-        sql = sql.replace("AUTOINCREMENT", "")
-        sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
-        sql = sql.replace("date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')", "CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
-        sql = sql.replace("date(br.due_date) < date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')", "br.due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
-        sql = sql.replace("date(due_date)<date('now', '-' || COALESCE((SELECT value FROM library_settings WHERE key='overdue_grace_days'),'0') || ' days')", "due_date < CURRENT_DATE - COALESCE((SELECT CAST(value AS INTEGER) FROM library_settings WHERE key='overdue_grace_days'), 0)")
-        sql = sql.replace("julianday(date('now'))", "CURRENT_DATE")
-        sql = sql.replace("julianday(br.due_date)-julianday(date('now'))", "br.due_date - CURRENT_DATE")
-        sql = sql.replace("MIN(total_copies, available_copies+1)", "LEAST(total_copies, available_copies + 1)")
-        sql = sql.replace("sqlite_master", "information_schema.tables")
-        sql = sql.replace("substr(CAST(borrowed_at as text),1,7)", "TO_CHAR(borrowed_at, 'YYYY-MM')")
-        sql = sql.replace("substr(borrowed_at,1,7)", "TO_CHAR(borrowed_at, 'YYYY-MM')")
-        sql = sql.replace("INSERT OR IGNORE INTO library_settings (key,value) VALUES (?,?)", "INSERT INTO library_settings (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING")
         self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
         self.cursor.execute(sql, params or ())
         return self.cursor
@@ -63,124 +49,27 @@ class PostgresConnection:
 
 
 def get_db_connection():
-    if DATABASE_URL:
-        return PostgresConnection(DATABASE_URL)
-
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL environment variable must be set for PostgreSQL mode.")
+    return PostgresConnection(DATABASE_URL)
 
 
 def init_database():
-    """Create the application tables and seed the 50 starter books once."""
+    """Create the application tables and seed the 50 starter books once, using PostgreSQL when the deployment supplies DATABASE_URL."""
     conn = get_db_connection()
-
-    if DATABASE_URL:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'student',
-                student_id TEXT UNIQUE,
-                department TEXT,
-                registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                account_status TEXT DEFAULT 'Active'
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS books (
-                book_id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                author TEXT NOT NULL,
-                main_category TEXT,
-                sub_category TEXT,
-                isbn TEXT,
-                publisher TEXT,
-                year INTEGER,
-                language TEXT,
-                description TEXT,
-                keywords TEXT,
-                edition TEXT,
-                total_copies INTEGER NOT NULL DEFAULT 1,
-                available_copies INTEGER NOT NULL DEFAULT 0,
-                shelf_location TEXT,
-                cover_image TEXT,
-                times_borrowed INTEGER NOT NULL DEFAULT 0,
-                rating REAL NOT NULL DEFAULT 0,
-                difficulty_level TEXT
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS borrowings (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                book_id TEXT NOT NULL,
-                borrowed_at TIMESTAMP NOT NULL,
-                due_date DATE NOT NULL,
-                returned_at TIMESTAMP,
-                status TEXT NOT NULL DEFAULT 'borrowed',
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (book_id) REFERENCES books(book_id)
-            )
-        """)
-        conn.commit()
-        count = conn.execute("SELECT COUNT(*) AS count FROM books").fetchone()["count"]
-        if count == 0:
-            for b in INITIAL_BOOKS:
-                conn.execute("""
-                    INSERT INTO books (
-                        book_id, title, author, main_category, sub_category, isbn,
-                        publisher, year, language, description, keywords, edition,
-                        total_copies, available_copies, shelf_location, cover_image,
-                        times_borrowed, rating, difficulty_level
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    b["book_id"], b["title"], b["author"], b["main_category"],
-                    b["sub_category"], b["isbn"], b["publisher"], b["year"],
-                    b["language"], b["description"], json.dumps(b["keywords"]),
-                    b["edition"], b["total_copies"], b["available_copies"],
-                    b["shelf_location"], b["cover_image"], b["times_borrowed"],
-                    b["rating"], b["difficulty_level"]
-                ))
-        conn.commit()
-        conn.close()
-        return
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'student',
             student_id TEXT UNIQUE,
-            department TEXT
+            department TEXT,
+            registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            account_status TEXT DEFAULT 'Active'
         )
-    """)
-    # Add student management fields to existing databases
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN registration_date TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN account_status TEXT DEFAULT 'Active'")
-    except sqlite3.OperationalError:
-        pass
-
-    conn.execute("""
-        UPDATE users
-        SET registration_date = datetime('now')
-        WHERE registration_date IS NULL
-    """)
-
-    conn.execute("""
-        UPDATE users
-        SET account_status = 'Active'
-        WHERE account_status IS NULL
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS books (
@@ -207,39 +96,36 @@ def init_database():
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS borrowings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
             book_id TEXT NOT NULL,
-            borrowed_at TEXT NOT NULL,
-            due_date TEXT NOT NULL,
-            returned_at TEXT,
+            borrowed_at TIMESTAMP NOT NULL,
+            due_date DATE NOT NULL,
+            returned_at TIMESTAMP,
             status TEXT NOT NULL DEFAULT 'borrowed',
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (book_id) REFERENCES books(book_id)
         )
     """)
-
-
+    conn.commit()
     count = conn.execute("SELECT COUNT(*) AS count FROM books").fetchone()["count"]
     if count == 0:
-        conn.executemany("""
-            INSERT INTO books (
-                book_id, title, author, main_category, sub_category, isbn,
-                publisher, year, language, description, keywords, edition,
-                total_copies, available_copies, shelf_location, cover_image,
-                times_borrowed, rating, difficulty_level
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, [
-            (
+        for b in INITIAL_BOOKS:
+            conn.execute("""
+                INSERT INTO books (
+                    book_id, title, author, main_category, sub_category, isbn,
+                    publisher, year, language, description, keywords, edition,
+                    total_copies, available_copies, shelf_location, cover_image,
+                    times_borrowed, rating, difficulty_level
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
                 b["book_id"], b["title"], b["author"], b["main_category"],
                 b["sub_category"], b["isbn"], b["publisher"], b["year"],
                 b["language"], b["description"], json.dumps(b["keywords"]),
                 b["edition"], b["total_copies"], b["available_copies"],
                 b["shelf_location"], b["cover_image"], b["times_borrowed"],
                 b["rating"], b["difficulty_level"]
-            ) for b in INITIAL_BOOKS
-        ])
-
+            ))
     conn.commit()
     conn.close()
 
@@ -2296,36 +2182,6 @@ def chat():
 
 def init_admin_features():
     conn = get_db_connection()
-    if DATABASE_URL:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS library_settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            )
-        """)
-        defaults = {
-            "max_books_per_student": "3",
-            "borrowing_period_days": "14",
-            "overdue_grace_days": "0",
-            "library_name": "AI Library Assistant",
-            "ai_enabled": "1"
-        }
-        for key, value in defaults.items():
-            conn.execute("INSERT INTO library_settings (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING", (key, value))
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS ai_activity (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER,
-                message TEXT NOT NULL,
-                intent TEXT NOT NULL DEFAULT 'general',
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """)
-        conn.commit()
-        conn.close()
-        return
-
     conn.execute("""
         CREATE TABLE IF NOT EXISTS library_settings (
             key TEXT PRIMARY KEY,
@@ -2340,14 +2196,14 @@ def init_admin_features():
         "ai_enabled": "1"
     }
     for key, value in defaults.items():
-        conn.execute("INSERT OR IGNORE INTO library_settings (key,value) VALUES (?,?)", (key, value))
+        conn.execute("INSERT INTO library_settings (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING", (key, value))
     conn.execute("""
         CREATE TABLE IF NOT EXISTS ai_activity (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER,
             message TEXT NOT NULL,
             intent TEXT NOT NULL DEFAULT 'general',
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
@@ -2524,7 +2380,7 @@ def admin_settings_api():
                     return jsonify({"error":f"Invalid value for {key}."}),400
             else:
                 value = str(value).strip()[:200]
-            conn.execute("INSERT INTO library_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key,value))
+            conn.execute("INSERT INTO library_settings(key,value) VALUES(%s,%s) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value", (key,value))
     conn.commit()
     rows = conn.execute("SELECT key,value FROM library_settings ORDER BY key").fetchall()
     conn.close()
